@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCR Stamp Rally</title>
+  <!-- Supabase Database SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary-navy: #002b49;
+      --cyan-bright: #00e5ff;
+      --border-color: #333333;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .card-container {
+      width: 100%;
+      max-width: 800px;
+      background: #ffffff;
+      border: 2px solid var(--border-color);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .header-banner {
+      background-color: var(--primary-navy);
+      color: var(--cyan-bright);
+      text-align: center;
+      padding: 15px 10px;
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .stamp-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 0;
+      background-color: var(--border-color);
+      padding: 2px;
+    }
+
+    .stamp-slot {
+      background-color: #ffffff;
+      aspect-ratio: 1.2 / 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .stamp-image {
+      width: 80%;
+      height: 80%;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      display: none;
+    }
+
+    .stamp-slot.active .stamp-image {
+      display: block;
+    }
+
+    .slot-number {
+      position: absolute;
+      bottom: 5px;
+      right: 8px;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+
+    .controls-container {
+      width: 100%;
+      max-width: 800px;
+      margin-top: 25px;
+    }
+
+    .user-section {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+
+    h3 {
+      margin-top: 0;
+      color: var(--primary-navy);
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #fff;
+      background-color: var(--primary-navy);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover { background-color: #00406c; }
+    .message { font-weight: bold; margin-top: 8px; }
+    .message.success { color: #2e7d32; }
+    .message.error { color: #d32f2f; }
+  </style>
+</head>
+<body>
+
+  <div class="card-container">
+    <div class="header-banner">SCR Stamp Rally</div>
+    <div class="stamp-grid" id="stampGrid">
+      <div class="stamp-slot" id="slot-1"><span class="slot-number">1</span></div>
+      <div class="stamp-slot" id="slot-2"><span class="slot-number">2</span></div>
+      <div class="stamp-slot" id="slot-3"><span class="slot-number">3</span></div>
+      <div class="stamp-slot" id="slot-4"><span class="slot-number">4</span></div>
+      <div class="stamp-slot" id="slot-5"><span class="slot-number">5</span></div>
+      <div class="stamp-slot" id="slot-6"><span class="slot-number">6</span></div>
+      <div class="stamp-slot" id="slot-7"><span class="slot-number">7</span></div>
+      <div class="stamp-slot" id="slot-8"><span class="slot-number">8</span></div>
+      <div class="stamp-slot" id="slot-9"><span class="slot-number">9</span></div>
+      <div class="stamp-slot" id="slot-10"><span class="slot-number">10</span></div>
+    </div>
+  </div>
+
+  <div class="controls-container">
+    <div class="user-section">
+      <h3>Redeem Your Stamp</h3>
+      <div class="input-group">
+        <input type="text" id="redeemCodeInput" placeholder="ENTER SINGLE-USE CODE" maxlength="8">
+        <button onclick="redeemStamp()">Collect Stamp</button>
+      </div>
+      <div id="userMessage" class="message"></div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // REPLACE THESE WITH YOUR SUPABASE DETAILS FROM STEP 1
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://pcmcympidotkwzrgjdpl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjbWN5bXBpZG90a3d6cmdqZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgxNzEsImV4cCI6MjEwNTIyNDE3MX0.9kiN2I80LZlAIMeDPjHeMhs8VmqlTdEtjkhjkG1pFvk';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // UNIQUE IMAGES FOR EACH STAFF STAMP (Replace placeholders with actual image URLs)
+    const STAMP_IMAGES = {
+      1: 'https://i.ibb.co/L534JgN/sunset-cove.png',            // Stamp 1 Image
+      2: 'https://via.placeholder.com/150/ff0000?text=Staff+2', // Stamp 2 Image
+      3: 'https://via.placeholder.com/150/00ff00?text=Staff+3', // Stamp 3 Image
+      4: 'https://via.placeholder.com/150/0000ff?text=Staff+4', // Stamp 4 Image
+      5: 'https://via.placeholder.com/150/ffff00?text=Staff+5', // Stamp 5 Image
+      6: 'https://via.placeholder.com/150/ff00ff?text=Staff+6', // Stamp 6 Image
+      7: 'https://via.placeholder.com/150/00ffff?text=Staff+7', // Stamp 7 Image
+      8: 'https://via.placeholder.com/150/ff9900?text=Staff+8', // Stamp 8 Image
+      9: 'https://via.placeholder.com/150/9900ff?text=Staff+9', // Stamp 9 Image
+      10: 'https://via.placeholder.com/150/0099ff?text=Staff+10' // Stamp 10 Image
+    };
+
+    // Default: Stamp #1 is already filled out
+    let collectedStamps = JSON.parse(localStorage.getItem('scr_collected_stamps')) || [1];
+
+    function renderCard() {
+      for (let i = 1; i <= 10; i++) {
+        const slot = document.getElementById(`slot-${i}`);
+        const existingImg = slot.querySelector('.stamp-image');
+        if (existingImg) existingImg.remove();
+
+        if (collectedStamps.includes(i)) {
+          slot.classList.add('active');
+          const img = document.createElement('img');
+          img.src = STAMP_IMAGES[i];
+          img.alt = `Staff #${i} Stamp`;
+          img.className = 'stamp-image';
+          slot.appendChild(img);
+        } else {
+          slot.classList.remove('active');
+        }
+      }
+
+      const userSection = document.querySelector('.user-section');
+
+      if (collectedStamps.length >= 10) {
+        let requestId = localStorage.getItem('scr_request_id');
+        if (!requestId) {
+          requestId = 'REQ-' + Math.floor(1000 + Math.random() * 9000);
+          localStorage.setItem('scr_request_id', requestId);
+        }
+
+        userSection.innerHTML = `
+          <h3 style="color: #002b49; margin-bottom: 5px;">🎉 All 10 Stamps Collected!</h3>
+          <p style="font-size: 0.9rem; margin-top: 0;">Provide your Request ID to staff to receive your Reward Unlock Code.</p>
+          
+          <div style="background: #e2e8f0; border: 1px solid #ccc; padding: 10px; text-align: center; border-radius: 4px; margin-bottom: 15px;">
+            <span style="font-size: 0.85rem; color: #555;">Your Request ID:</span><br>
+            <strong style="font-size: 1.3rem; letter-spacing: 1px; color: #002b49;">${requestId}</strong>
+          </div>
+
+          <div class="input-group">
+            <input type="text" id="unlockCodeInput" placeholder="ENTER UNLOCK CODE" maxlength="8">
+            <button onclick="processRewardUnlock()" style="background-color: #2e7d32;">Claim Reward</button>
+          </div>
+          <div id="unlockMessage" class="message"></div>
+        `;
+      }
+    }
+
+    async function redeemStamp() {
+      const inputEl = document.getElementById('redeemCodeInput');
+      const msgEl = document.getElementById('userMessage');
+      const enteredCode = inputEl.value.trim().toUpperCase();
+
+      msgEl.className = 'message';
+      msgEl.innerText = 'Verifying code...';
+
+      // 1. Verify code pattern format
+      const codeMatch = enteredCode.match(/^ST([2-9]|10)-(\d{4})$/);
+      if (!codeMatch) {
+        msgEl.innerText = 'Invalid code format.';
+        msgEl.classList.add('error');
+        return;
+      }
+
+      const staffNum = parseInt(codeMatch[1]);
+
+      if (collectedStamps.includes(staffNum)) {
+        msgEl.innerText = `You have already collected Stamp #${staffNum}!`;
+        msgEl.classList.add('error');
+        return;
+      }
+
+      // 2. FRAUD CHECK: Look up code in Database
+      const { data, error } = await db
+        .from('valid_codes')
+        .select('*')
+        .eq('code', enteredCode);
+
+      if (error || !data || data.length === 0) {
+        msgEl.innerText = 'Invalid or ungenerated code!';
+        msgEl.classList.add('error');
+        return;
+      }
+
+      // 3. Delete code from Database so it cannot be used a second time
+      await db.from('valid_codes').delete().eq('code', enteredCode);
+
+      // 4. Grant Stamp
+      collectedStamps.push(staffNum);
+      localStorage.setItem('scr_collected_stamps', JSON.stringify(collectedStamps));
+
+      renderCard();
+      inputEl.value = '';
+      msgEl.innerText = `Stamp #${staffNum} successfully added!`;
+      msgEl.classList.add('success');
+    }
+
+    async function processRewardUnlock() {
+      const inputEl = document.getElementById('unlockCodeInput');
+      const msgEl = document.getElementById('unlockMessage');
+      const enteredUnlock = inputEl.value.trim().toUpperCase();
+
+      msgEl.className = 'message';
+      msgEl.innerText = 'Verifying unlock code...';
+
+      const { data, error } = await db
+        .from('valid_codes')
+        .select('*')
+        .eq('code', enteredUnlock);
+
+      if (error || !data || data.length === 0) {
+        msgEl.innerText = 'Invalid unlock code.';
+        msgEl.classList.add('error');
+        return;
+      }
+
+      await db.from('valid_codes').delete().eq('code', enteredUnlock);
+
+      alert("Reward Claimed Successfully! Your stamp card will now reset.");
+      localStorage.removeItem('scr_request_id');
+      localStorage.setItem('scr_collected_stamps', JSON.stringify([1]));
+      location.reload();
+    }
+
+    renderCard();
+  </script>
+</body>
+</html>

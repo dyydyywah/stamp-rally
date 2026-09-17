@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Control Panel - SCR Stamp Rally</title>
+  <!-- Supabase Database SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .staff-card {
+      width: 100%;
+      max-width: 600px;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      border-left: 6px solid #002b49;
+    }
+
+    h2 { margin-top: 0; color: #002b49; }
+    p { color: #555; font-size: 0.95rem; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; color: #002b49; }
+    select { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-stamp { background-color: #002b49; }
+    .btn-unlock { background-color: #2e7d32; }
+
+    .code-box {
+      margin-top: 25px;
+      padding: 15px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      text-align: center;
+      display: none;
+    }
+
+    .code-text {
+      font-family: monospace;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #002b49;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="staff-card">
+    <h2>Staff Control Panel</h2>
+    <p>Select your authorized station number and generate 1-time single-use codes for participants.</p>
+
+    <div class="form-group">
+      <label for="staffSelect">Select Staff / Station Number:</label>
+      <select id="staffSelect">
+        <option value="2">Staff #2 (Fills Stamp 2)</option>
+        <option value="3">Staff #3 (Fills Stamp 3)</option>
+        <option value="4">Staff #4 (Fills Stamp 4)</option>
+        <option value="5">Staff #5 (Fills Stamp 5)</option>
+        <option value="6">Staff #6 (Fills Stamp 6)</option>
+        <option value="7">Staff #7 (Fills Stamp 7)</option>
+        <option value="8">Staff #8 (Fills Stamp 8)</option>
+        <option value="9">Staff #9 (Fills Stamp 9)</option>
+        <option value="10">Staff #10 (Fills Stamp 10)</option>
+      </select>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn-stamp" onclick="generateStampCode()">Generate Stamp Code</button>
+      <button class="btn-unlock" onclick="generateUnlockCode()">Generate Reward Unlock Code</button>
+    </div>
+
+    <div id="resultBox" class="code-box">
+      <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;" id="codeLabel">Single-Use Code:</div>
+      <div class="code-text" id="codeVal">ST2-0000</div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // REPLACE THESE WITH YOUR SUPABASE DETAILS FROM STEP 1
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://pcmcympidotkwzrgjdpl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjbWN5bXBpZG90a3d6cmdqZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgxNzEsImV4cCI6MjEwNTIyNDE3MX0.9kiN2I80LZlAIMeDPjHeMhs8VmqlTdEtjkhjkG1pFvk';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function generateStampCode() {
+      const staffId = document.getElementById('staffSelect').value;
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      const code = `ST${staffId}-${randomDigits}`;
+
+      // Insert code directly into database
+      const { error } = await db.from('valid_codes').insert([{ code: code }]);
+
+      if (error) {
+        alert("Error generating code: " + error.message);
+        return;
+      }
+
+      document.getElementById('codeLabel').innerText = `Give this code to collect Stamp #${staffId}:`;
+      document.getElementById('codeVal').innerText = code;
+      document.getElementById('resultBox').style.display = 'block';
+    }
+
+    async function generateUnlockCode() {
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      const code = `UNL${randomDigits}`;
+
+      const { error } = await db.from('valid_codes').insert([{ code: code }]);
+
+      if (error) {
+        alert("Error generating unlock code: " + error.message);
+        return;
+      }
+
+      document.getElementById('codeLabel').innerText = 'Give this final unlock code to customer:';
+      document.getElementById('codeVal').innerText = code;
+      document.getElementById('resultBox').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
