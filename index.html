@@ -158,7 +158,6 @@
     <div class="user-section">
       <h3>Redeem Your Stamp</h3>
       <div class="input-group">
-        <!-- MAXLENGTH CHANGED TO 9 TO ALLOW ST10-XXXX -->
         <input type="text" id="redeemCodeInput" placeholder="ENTER SINGLE-USE CODE" maxlength="9">
         <button onclick="redeemStamp()">Collect Stamp</button>
       </div>
@@ -174,7 +173,7 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjbWN5bXBpZG90a3d6cmdqZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgxNzEsImV4cCI6MjEwNTIyNDE3MX0.9kiN2I80LZlAIMeDPjHeMhs8VmqlTdEtjkhjkG1pFvk';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // UNIQUE IMAGES FOR EACH STAFF STAMP (Replace placeholders with actual image URLs)
+    // UNIQUE IMAGES FOR EACH STAFF STAMP
     const STAMP_IMAGES = {
       1: 'https://i.ibb.co/L534JgN/sunset-cove.png',            // Stamp 1 Image
       2: 'https://via.placeholder.com/150/ff0000?text=Staff+2', // Stamp 2 Image
@@ -188,10 +187,10 @@
       10: 'https://via.placeholder.com/150/0099ff?text=Staff+10' // Stamp 10 Image
     };
 
-    // Default: Stamp #1 is already filled out
     let collectedStamps = JSON.parse(localStorage.getItem('scr_collected_stamps')) || [1];
+    let isUnlocked = localStorage.getItem('scr_is_unlocked') === 'true';
 
-    function renderCard() {
+    async function renderCard() {
       for (let i = 1; i <= 10; i++) {
         const slot = document.getElementById(`slot-${i}`);
         const existingImg = slot.querySelector('.stamp-image');
@@ -211,11 +210,28 @@
 
       const userSection = document.querySelector('.user-section');
 
+      // STATE 1: Reward Already Unlocked (Congratulation Banner)
+      if (isUnlocked) {
+        userSection.innerHTML = `
+          <div style="text-align: center; padding: 10px 0;">
+            <h2 style="color: #2e7d32; margin-bottom: 5px;">🎉 CONGRATULATIONS! 🎉</h2>
+            <p style="font-size: 1.1rem; color: #002b49; font-weight: bold; margin-top: 0;">
+              You have successfully collected all 10 stamps and redeemed your reward!
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      // STATE 2: All 10 Stamps Collected (Prompt for Request ID / Unlock Code)
       if (collectedStamps.length >= 10) {
         let requestId = localStorage.getItem('scr_request_id');
         if (!requestId) {
           requestId = 'REQ-' + Math.floor(1000 + Math.random() * 9000);
           localStorage.setItem('scr_request_id', requestId);
+          
+          // Save Request ID to Database so Staff can verify it
+          await db.from('valid_codes').insert([{ code: requestId }]);
         }
 
         userSection.innerHTML = `
@@ -228,7 +244,7 @@
           </div>
 
           <div class="input-group">
-            <input type="text" id="unlockCodeInput" placeholder="ENTER UNLOCK CODE" maxlength="8">
+            <input type="text" id="unlockCodeInput" placeholder="ENTER UNLOCK CODE (UNL-XXXX)" maxlength="8">
             <button onclick="processRewardUnlock()" style="background-color: #2e7d32;">Claim Reward</button>
           </div>
           <div id="unlockMessage" class="message"></div>
@@ -244,7 +260,6 @@
       msgEl.className = 'message';
       msgEl.innerText = 'Verifying code...';
 
-      // 1. FIXED PATTERN: Supports ST2 through ST10
       const codeMatch = enteredCode.match(/^ST([2-9]|10)-(\d{4})$/);
       if (!codeMatch) {
         msgEl.innerText = 'Invalid code format.';
@@ -260,7 +275,6 @@
         return;
       }
 
-      // 2. FRAUD CHECK: Look up code in Database
       const { data, error } = await db
         .from('valid_codes')
         .select('*')
@@ -272,10 +286,8 @@
         return;
       }
 
-      // 3. Delete code from Database so it cannot be used a second time
       await db.from('valid_codes').delete().eq('code', enteredCode);
 
-      // 4. Grant Stamp
       collectedStamps.push(staffNum);
       localStorage.setItem('scr_collected_stamps', JSON.stringify(collectedStamps));
 
@@ -293,6 +305,7 @@
       msgEl.className = 'message';
       msgEl.innerText = 'Verifying unlock code...';
 
+      // 1. VERIFY UNLOCK CODE IN DATABASE
       const { data, error } = await db
         .from('valid_codes')
         .select('*')
@@ -304,12 +317,14 @@
         return;
       }
 
+      // 2. DELETE UNLOCK CODE FROM DATABASE
       await db.from('valid_codes').delete().eq('code', enteredUnlock);
 
-      alert("Reward Claimed Successfully! Your stamp card will now reset.");
-      localStorage.removeItem('scr_request_id');
-      localStorage.setItem('scr_collected_stamps', JSON.stringify([1]));
-      location.reload();
+      // 3. MARK CARD AS UNLOCKED (DO NOT RESET STAMPS)
+      localStorage.setItem('scr_is_unlocked', 'true');
+      isUnlocked = true;
+
+      renderCard();
     }
 
     renderCard();
