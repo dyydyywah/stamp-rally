@@ -158,7 +158,8 @@
     <div class="user-section">
       <h3>Redeem Your Stamp</h3>
       <div class="input-group">
-        <input type="text" id="redeemCodeInput" placeholder="ENTER SINGLE-USE CODE" maxlength="8">
+        <!-- MAXLENGTH CHANGED TO 9 TO ALLOW ST10-XXXX -->
+        <input type="text" id="redeemCodeInput" placeholder="ENTER SINGLE-USE CODE" maxlength="9">
         <button onclick="redeemStamp()">Collect Stamp</button>
       </div>
       <div id="userMessage" class="message"></div>
@@ -167,7 +168,7 @@
 
   <script>
     // -------------------------------------------------------------
-    // REPLACE THESE WITH YOUR SUPABASE DETAILS FROM STEP 1
+    // REPLACE THESE WITH YOUR SUPABASE DETAILS
     // -------------------------------------------------------------
     const SUPABASE_URL = 'https://pcmcympidotkwzrgjdpl.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjbWN5bXBpZG90a3d6cmdqZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgxNzEsImV4cCI6MjEwNTIyNDE3MX0.9kiN2I80LZlAIMeDPjHeMhs8VmqlTdEtjkhjkG1pFvk';
@@ -243,7 +244,7 @@
       msgEl.className = 'message';
       msgEl.innerText = 'Verifying code...';
 
-      // 1. Verify code pattern format
+      // 1. FIXED PATTERN: Supports ST2 through ST10
       const codeMatch = enteredCode.match(/^ST([2-9]|10)-(\d{4})$/);
       if (!codeMatch) {
         msgEl.innerText = 'Invalid code format.';
@@ -251,7 +252,7 @@
         return;
       }
 
-      const staffNum = parseInt(codeMatch[1]);
+      const staffNum = parseInt(codeMatch[1], 10);
 
       if (collectedStamps.includes(staffNum)) {
         msgEl.innerText = `You have already collected Stamp #${staffNum}!`;
