@@ -27,10 +27,11 @@
     }
 
     h2 { margin-top: 0; color: #002b49; }
+    h3 { margin-top: 25px; margin-bottom: 10px; color: #002b49; border-top: 1px solid #ddd; padding-top: 15px; }
     p { color: #555; font-size: 0.95rem; }
     .form-group { margin-bottom: 20px; }
     label { display: block; font-weight: bold; margin-bottom: 6px; color: #002b49; }
-    select { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
+    select, input[type="text"] { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; box-sizing: border-box; text-transform: uppercase; }
     .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
 
     button {
@@ -47,7 +48,7 @@
     .btn-unlock { background-color: #2e7d32; }
 
     .code-box {
-      margin-top: 25px;
+      margin-top: 20px;
       padding: 15px;
       background: #e2e8f0;
       border-radius: 6px;
@@ -62,14 +63,18 @@
       color: #002b49;
       letter-spacing: 2px;
     }
+
+    .message { font-weight: bold; margin-top: 10px; }
+    .message.error { color: #d32f2f; }
   </style>
 </head>
 <body>
 
   <div class="staff-card">
     <h2>Staff Control Panel</h2>
-    <p>Select your authorized station number and generate 1-time single-use codes for participants.</p>
-
+    
+    <!-- SECTION 1: STAMP CODE GENERATOR -->
+    <p>Select your station number to generate 1-time stamp code for participants.</p>
     <div class="form-group">
       <label for="staffSelect">Select Staff / Station Number:</label>
       <select id="staffSelect">
@@ -85,20 +90,34 @@
       </select>
     </div>
 
-    <div class="btn-group">
-      <button class="btn-stamp" onclick="generateStampCode()">Generate Stamp Code</button>
-      <button class="btn-unlock" onclick="generateUnlockCode()">Generate Reward Unlock Code</button>
+    <button class="btn-stamp" onclick="generateStampCode()">Generate Stamp Code</button>
+
+    <div id="stampResultBox" class="code-box">
+      <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;" id="stampCodeLabel">Single-Use Stamp Code:</div>
+      <div class="code-text" id="stampCodeVal">ST2-0000</div>
     </div>
 
-    <div id="resultBox" class="code-box">
-      <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;" id="codeLabel">Single-Use Code:</div>
-      <div class="code-text" id="codeVal">ST2-0000</div>
+    <!-- SECTION 2: REQUEST ID VERIFICATION & UNLOCK CODE GENERATOR -->
+    <h3>Verify Customer Completion</h3>
+    <p>Enter the Customer's Request ID (REQ-XXXX) to verify and issue their Reward Unlock Code.</p>
+
+    <div class="form-group">
+      <label for="requestIdInput">Customer Request ID:</label>
+      <input type="text" id="requestIdInput" placeholder="E.G. REQ-1234" maxlength="8">
+    </div>
+
+    <button class="btn-unlock" onclick="verifyRequestAndGenerateUnlock()">Verify & Generate Unlock Code</button>
+    <div id="staffMsg" class="message"></div>
+
+    <div id="unlockResultBox" class="code-box">
+      <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Give this Unlock Code to Customer:</div>
+      <div class="code-text" id="unlockCodeVal">UNL-0000</div>
     </div>
   </div>
 
   <script>
     // -------------------------------------------------------------
-    // REPLACE THESE WITH YOUR SUPABASE DETAILS FROM STEP 1
+    // REPLACE THESE WITH YOUR SUPABASE DETAILS
     // -------------------------------------------------------------
     const SUPABASE_URL = 'https://pcmcympidotkwzrgjdpl.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjbWN5bXBpZG90a3d6cmdqZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgxNzEsImV4cCI6MjEwNTIyNDE3MX0.9kiN2I80LZlAIMeDPjHeMhs8VmqlTdEtjkhjkG1pFvk';
@@ -109,7 +128,6 @@
       const randomDigits = Math.floor(1000 + Math.random() * 9000);
       const code = `ST${staffId}-${randomDigits}`;
 
-      // Insert code directly into database
       const { error } = await db.from('valid_codes').insert([{ code: code }]);
 
       if (error) {
@@ -117,25 +135,57 @@
         return;
       }
 
-      document.getElementById('codeLabel').innerText = `Give this code to collect Stamp #${staffId}:`;
-      document.getElementById('codeVal').innerText = code;
-      document.getElementById('resultBox').style.display = 'block';
+      document.getElementById('stampCodeLabel').innerText = `Give this code to collect Stamp #${staffId}:`;
+      document.getElementById('stampCodeVal').innerText = code;
+      document.getElementById('stampResultBox').style.display = 'block';
     }
 
-    async function generateUnlockCode() {
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const code = `UNL${randomDigits}`;
+    async function verifyRequestAndGenerateUnlock() {
+      const reqInput = document.getElementById('requestIdInput');
+      const msgEl = document.getElementById('staffMsg');
+      const enteredReq = reqInput.value.trim().toUpperCase();
 
-      const { error } = await db.from('valid_codes').insert([{ code: code }]);
+      msgEl.className = 'message';
+      msgEl.innerText = 'Verifying Request ID...';
+      document.getElementById('unlockResultBox').style.display = 'none';
 
-      if (error) {
-        alert("Error generating unlock code: " + error.message);
+      if (!/^REQ-\d{4}$/.test(enteredReq)) {
+        msgEl.innerText = 'Invalid Request ID format. Must be REQ-XXXX.';
+        msgEl.classList.add('error');
         return;
       }
 
-      document.getElementById('codeLabel').innerText = 'Give this final unlock code to customer:';
-      document.getElementById('codeVal').innerText = code;
-      document.getElementById('resultBox').style.display = 'block';
+      // 1. VERIFY REQUEST ID IN DATABASE
+      const { data, error } = await db
+        .from('valid_codes')
+        .select('*')
+        .eq('code', enteredReq);
+
+      if (error || !data || data.length === 0) {
+        msgEl.innerText = 'Invalid or previously used Request ID!';
+        msgEl.classList.add('error');
+        return;
+      }
+
+      // 2. DELETE REQUEST ID FROM DATABASE (Makes it single-use)
+      await db.from('valid_codes').delete().eq('code', enteredReq);
+
+      // 3. GENERATE & INSERT UNLOCK CODE INTO DATABASE
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      const unlockCode = `UNL-${randomDigits}`;
+
+      const { error: unlockError } = await db.from('valid_codes').insert([{ code: unlockCode }]);
+
+      if (unlockError) {
+        msgEl.innerText = 'Error creating unlock code: ' + unlockError.message;
+        msgEl.classList.add('error');
+        return;
+      }
+
+      msgEl.innerText = '';
+      document.getElementById('unlockCodeVal').innerText = unlockCode;
+      document.getElementById('unlockResultBox').style.display = 'block';
+      reqInput.value = '';
     }
   </script>
 </body>
